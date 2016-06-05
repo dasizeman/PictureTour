@@ -19,6 +19,7 @@ from OpenGL.GL import *
 from OpenGL.GLUT import *
 from OpenGL.GLU import *
 from PIL import Image
+import ipdb
 
 
 def getY(x, p1, p2):
@@ -195,7 +196,7 @@ def computehomography(facefrom, faceto):
 
     return np.linalg.svd(np.dot(A.T, A))[2][-1, :].reshape((3, 3))
 
-# Taken from
+# Adapted from
 # http://stackoverflow.com/questions/12729228/simple-efficient-bilinear-interpolation-of-images-in-numpy-and-python
 def bilinear_interpolate(im, x, y):
 
@@ -219,7 +220,14 @@ def bilinear_interpolate(im, x, y):
     wc = (x-x0) * (y1-y)
     wd = (x-x0) * (y-y0)
 
-    return wa*Ia + wb*Ib + wc*Ic + wd*Id
+    wa = wa.reshape((wa.shape[0],1))
+    wb = wb.reshape((wa.shape[0],1))
+    wc = wc.reshape((wa.shape[0],1))
+    wd = wd.reshape((wa.shape[0],1))
+
+    res = (wa*Ia + wb*Ib + wc*Ic + wd*Id)
+
+    return res
 
 
 def homographywarp(source, homography, imwidth, imheight):
@@ -257,6 +265,7 @@ def homographywarp(source, homography, imwidth, imheight):
 
 
     newimage = bilinear_interpolate(source, map_xs, map_ys)
+    newimage = newimage.reshape((imwidth,imheight,3)).transpose([1,0,2])
 
 
     return newimage.astype(np.uint8)
