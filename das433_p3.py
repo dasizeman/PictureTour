@@ -107,23 +107,27 @@ def computefaces(corner1, corner2, vanishingpt, imwidth, imheight, focallen):
                        [backleft, backbottom, depth],
                        [backright, backbottom, depth]])
 
-    right3d = np.array([[backright, backtop, 0],
+    # was right
+    left3d = np.array([[backright, backtop, 0],
                         [backright, backtop, depth],
                         [backright, backbottom, depth],
                         [backright, backbottom, 0]])
 
-    top3d =  np.array([[backright, backtop, 0],
+    # was top
+    bottom3d =  np.array([[backright, backtop, 0],
                        [backleft, backtop, 0],
                        [backleft, backtop, depth],
                        [backright, backtop, depth]])
 
-    left3d = np.array([[backleft, backtop, depth],
+    # was left
+    right3d = np.array([[backleft, backtop, depth],
                        [backleft,backtop, 0],
                        [backleft, backbottom, 0],
                        [backleft, backbottom, depth]])
                        
 
-    bottom3d = np.array([[backright, backbottom, depth],
+    # was bottom 
+    top3d = np.array([[backright, backbottom, depth],
                          [backleft, backbottom, depth],
                          [backleft, backbottom,0],
                          [backright, backbottom, 0]])
@@ -266,6 +270,9 @@ def homographywarp(source, homography, imwidth, imheight):
 
     newimage = bilinear_interpolate(source, map_xs, map_ys)
     newimage = newimage.reshape((imwidth,imheight,3)).transpose([1,0,2])
+
+    # Rotate to compensate for upside down view in opengl
+    newimage = np.rot90(newimage, k=2)
 
 
     return newimage.astype(np.uint8)
