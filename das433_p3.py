@@ -98,7 +98,7 @@ def computefaces(corner1, corner2, vanishingpt, imwidth, imheight, focallen):
                          [getX(imheight, [backright, backbottom], vanishingpt), imheight]])
 
 
-    ratio = (imheight - vanishingpt[1]) / (backbottom - vanishingpt[1])
+    ratio = (vanishingpt[1]) / (backbottom - vanishingpt[1])
     depth = (ratio*focallen) - focallen
 
     back3d = np.array([[backright,backtop,depth],
@@ -195,6 +195,32 @@ def computehomography(facefrom, faceto):
 
     return np.linalg.svd(np.dot(A.T, A))[2][-1, :].reshape((3, 3))
 
+# Taken from
+# http://stackoverflow.com/questions/12729228/simple-efficient-bilinear-interpolation-of-images-in-numpy-and-python
+def bilinear_interpolate(im, x, y):
+
+    x0 = np.floor(x).astype(int)
+    x1 = x0 + 1
+    y0 = np.floor(y).astype(int)
+    y1 = y0 + 1
+
+    x0 = np.clip(x0, 0, im.shape[1]-1);
+    x1 = np.clip(x1, 0, im.shape[1]-1);
+    y0 = np.clip(y0, 0, im.shape[0]-1);
+    y1 = np.clip(y1, 0, im.shape[0]-1);
+
+    Ia = im[ y0, x0 ]
+    Ib = im[ y1, x0 ]
+    Ic = im[ y0, x1 ]
+    Id = im[ y1, x1 ]
+
+    wa = (x1-x) * (y1-y)
+    wb = (x1-x) * (y-y0)
+    wc = (x-x0) * (y1-y)
+    wd = (x-x0) * (y-y0)
+
+    return wa*Ia + wb*Ib + wc*Ic + wd*Id
+
 
 def homographywarp(source, homography, imwidth, imheight):
     """warp image using homography into destination image of size imwidth x
@@ -203,7 +229,7 @@ def homographywarp(source, homography, imwidth, imheight):
     homography --- ndarray(shape=(3, 3), dtype=float), homography transformation
     imwidth --- new image width
     imheight --- new image height"""
-    newimage = np.zeros((imheight, imwidth, 3), dtype=np.uint8)
+    #newimage = np.zeros((imheight, imwidth, 3), dtype=np.uint8)
 
     # ENTER CODE HERE
     # ENTER CODE HERE
@@ -213,14 +239,27 @@ def homographywarp(source, homography, imwidth, imheight):
     #       warp very quickly. check out the methods numpy.meshgrid and
     #       numpy.take.
 
-    xidxs, yidxs = np.meshgrid(np.arange(np.shape[0]), np.arange(np.shape[1]))
+    yidxs, xidxs = np.meshgrid(np.arange(imheight), np.arange(imwidth))
     idxs = np.dstack((xidxs, yidxs))
+    idxs = np.insert(idxs,2,1,axis=2)
 
-    homog_array = np.zeros((imwidth, imheight))
+    idxs = idxs.reshape((imheight*imwidth, 3)).transpose()
+
+    homog_inverse = np.linalg.inv(homography)
+    inverse_map = np.dot(homog_inverse, idxs)
+
+    inverse_map[0,...] /= inverse_map[2,...]
+    inverse_map[1,...] /= inverse_map[2,...]
+    inverse_map[2,...] /= inverse_map[2,...]
+
+    map_xs = inverse_map[0,...]
+    map_ys = inverse_map[1,...]
 
 
+    newimage = bilinear_interpolate(source, map_xs, map_ys)
 
-    return newimage
+
+    return newimage.astype(np.uint8)
 
 
 ###############################################################################
@@ -338,7 +377,8 @@ class SelectPoints():
 
             glVertex2f(self.vanishingpt[0], self.vanishingpt[1])
             direction = point - self.vanishingpt
-            direction *= 1000. / np.linalg.norm(direction)
+            direction = direction * (1000. /
+                    np.linalg.norm(direction)).astype(np.uint64)
             glVertex2f(self.vanishingpt[0] + direction[0], self.vanishingpt[1] + direction[1])
 
             glEnd()
@@ -378,11 +418,11 @@ class Navigate():
         bottomimg = transformimage(self.image, bottom, self.bottom3d)
 
         # debugging
-        Image.fromarray(backimg).save("debug_back.png")
-        Image.fromarray(rightimg).save("debug_right.png")
-        Image.fromarray(topimg).save("debug_top.png")
-        Image.fromarray(leftimg).save("debug_left.png")
-        Image.fromarray(bottomimg).save("debug_bottom.png")
+        Image.fromarray(backimg).save("debug_back.png", "PNG")
+        Image.fromarray(rightimg).save("debug_right.png", "PNG")
+        Image.fromarray(topimg).save("debug_top.png", "PNG")
+        Image.fromarray(leftimg).save("debug_left.png", "PNG")
+        Image.fromarray(bottomimg).save("debug_bottom.png", "PNG")
 
         # pass to OpenGL
         settexture(self.backtex, backimg)
